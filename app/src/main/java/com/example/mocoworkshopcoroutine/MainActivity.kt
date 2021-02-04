@@ -16,11 +16,12 @@ import com.android.volley.Response
 import com.android.volley.toolbox.Volley
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
+import org.json.JSONObject
 
 
 // HOW TO - Netzwerkabfragen
 // 1. Internet permission hinzufügen (https://java2blog.com/add-internet-permission-in-androidmanifest-android-studio/)
-// 2. Contlin X library als dependency hinzufügen (In den Folien schauen wie)
+// 2. Kotlin X library als dependency hinzufügen (In den Folien schauen wie)
 // 3. Volley library als dependency hinzufügen (https://developer.android.com/training/volley)
 // 4. Textfeld hinzufügen, worin stehen soll, ob man mit dem Internet verbunden ist
 // 5. Internetverbindung überprüfen (Code von Ali im Google Drive)
@@ -29,68 +30,9 @@ import kotlinx.coroutines.Dispatchers.Main
 
 // HOW TO - Coroutinen
 // 1. Tutorial von: https://www.youtube.com/watch?v=F63mhZk-1-Y&ab_channel=CodingWithMitch
-// 2. Contlin X library als dependency hinzufügen (Falls nicht schon geschehen)
+// 2. Kotlin X library als dependency hinzufügen (Falls nicht schon geschehen)
 
 class MainActivity : AppCompatActivity() {
-
-    // Function for connectivity
-    private fun isconnected():Boolean {
-        val connectivity = this.getSystemService(Service.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-        if (connectivity != null){
-            val info = connectivity.activeNetworkInfo
-            if (info != null) {
-                if (info!!.state == NetworkInfo.State.CONNECTED){
-
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
-    // Functions for Coroutines
-
-    private fun setNewText(input: String) {
-        val textResult: TextView = findViewById(R.id.textViewResult)
-        val newText = textResult.text.toString() + "\n$input"
-        textResult.text = newText
-    }
-
-    private suspend fun setTextOnMainThread(input: String) {
-        CoroutineScope(Main).launch {
-            setNewText(input)
-        }
-    }
-
-    private suspend fun fakeApiRequest() {
-        val result1 = getResult1FromApi()
-        println("debug: $result1")
-
-        // Now set text on main thread
-        setTextOnMainThread(result1)
-
-        // Now result 2
-        val result2 = getResult2FromApi()
-        setTextOnMainThread(result2)
-    }
-
-    private suspend fun getResult1FromApi() : String {
-        logThread("getResult1FromApi")
-        delay(1000) // Will only delay coroutine, not thread!
-        // Similar to Thread.sleep(1000) --- Coroutines != Thread
-        return "Result #1"
-    }
-
-    private suspend fun getResult2FromApi(): String {
-        logThread("getResult2FromApi")
-        delay(1000)
-        return "Result #2"
-    }
-
-    private fun logThread(methodName: String) {
-        println("debug: ${methodName}: ${Thread.currentThread().name}")
-    }
 
 
     // onCreate
@@ -130,25 +72,86 @@ class MainActivity : AppCompatActivity() {
         buttonSend.setOnClickListener {
 
             if (isconnected()) { // Check if app is connected to the internet
+
+                textConn.text = "Connected to the internet."
+
                 textURL.text = url
 
                 // Make a string request
                 val stringRequest = StringRequest(
-                    Request.Method.GET,
-                    url,
-                    Response.Listener { responseString ->
-                        // Response String
-                        textResponse.text = responseString
-                    },
-                    Response.ErrorListener {
-                        // Volley error, if any
-                    }
+                        Request.Method.GET,
+                        url,
+                        { responseString ->
+                            // Response String
+                            val jsonObject = JSONObject(responseString)
+                            textResponse.text = jsonObject.getString("title")
+                        },
+                        {
+                            // Volley error, if any
+                        }
                 )
 
                 // Create volley request queue and add our request
                 Volley.newRequestQueue(this).add(stringRequest)
-            }
-
+            } else textConn.text = "Not connected to the internet."
         }
     }
+
+    // Function for connectivity
+    private fun isconnected():Boolean {
+        val connectivity = this.getSystemService(Service.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+            val info = connectivity.activeNetworkInfo
+            if (info != null) {
+                if (info.state == NetworkInfo.State.CONNECTED){
+
+                    return true
+                }
+            }
+        return false
+    }
+
+    // Functions for Coroutines
+
+    private fun setNewText(input: String) {
+        val textResult: TextView = findViewById(R.id.textViewResult)
+        val newText = textResult.text.toString() + "\n$input"
+        textResult.text = newText
+    }
+
+    private suspend fun setTextOnMainThread(input: String) {
+        withContext(Main) {
+            setNewText(input)
+        }
+    }
+
+    private suspend fun fakeApiRequest() {
+        val result1 = getResult1FromApi()
+        println("debug: $result1")
+
+        // Now set text on main thread
+        setTextOnMainThread(result1)
+
+        // Now result 2
+        val result2 = getResult2FromApi()
+        setTextOnMainThread(result2)
+    }
+
+    private suspend fun getResult1FromApi() : String {
+        logThread("getResult1FromApi")
+        delay(1000) // Will only delay coroutine, not thread!
+        // Similar to Thread.sleep(1000) --- Coroutines != Thread
+        return "Result #1"
+    }
+
+    private suspend fun getResult2FromApi(): String {
+        logThread("getResult2FromApi")
+        delay(1000)
+        return "Result #2"
+    }
+
+    private fun logThread(methodName: String) {
+        println("debug: ${methodName}: ${Thread.currentThread().name}")
+    }
+
 }
